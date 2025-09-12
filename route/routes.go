@@ -24,4 +24,7 @@ func SetupRoutes(app *fiber.App) {
 	pekerjaan.Post("/", repository.CreatePekerjaanAlumni)
 	pekerjaan.Put("/:id", repository.UpdatePekerjaanAlumni)
 	pekerjaan.Delete("/:id", repository.DeletePekerjaanAlumni)
+
+	alumniPekerjaan := api.Group("/alumni/pekerjaan")
+	alumniPekerjaan.Get("/:tahun_lulus", repository.GetAlumniByYear)
 }
