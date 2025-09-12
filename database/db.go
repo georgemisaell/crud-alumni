@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
+	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq"
 )
 
@@ -14,7 +16,7 @@ func ConnectDB(){
 	var err error
 
 	// Connecting string
-	dsn := "host=localhost user=postgres password=root dbname=alumnidb_4 port=5432 sslmode=disable"
+	dsn := os.Getenv("DB_DSN")
 
 	DB, err = sql.Open("postgres", dsn)
 	if err != nil {

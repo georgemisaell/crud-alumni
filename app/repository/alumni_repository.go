@@ -3,6 +3,7 @@ package repository
 import (
 	"crud-alumni/app/models"
 	"crud-alumni/database"
+	"log"
 	"strconv"
 	"time"
 
@@ -46,6 +47,93 @@ func GetAllAlumni(c *fiber.Ctx) error{
 		"success": true,
 		"data": alumniList,
 		"message" : "Data alumni berhasil diambil!",
+	})
+}
+
+func GetAlumniByYear(c *fiber.Ctx) error {
+	tahunLulus, err := strconv.Atoi(c.Params("tahun_lulus"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"success": false,
+			"message": "Parameter tahun lulus tidak valid",
+		})
+	}
+
+	query := `
+        SELECT 
+            a.id, a.nama, a.jurusan, a.tahun_lulus, 
+            pa.bidang_industri, pa.nama_perusahaan, pa.posisi_jabatan, pa.gaji_range,
+            COUNT(a.id) OVER (PARTITION BY a.tahun_lulus) AS jumlah_alumni_per_tahun_lulus
+        FROM alumni a
+        INNER JOIN pekerjaan_alumni pa ON a.id = pa.alumni_id
+        WHERE 
+            a.tahun_lulus = $1
+            AND CAST(
+                split_part(
+                    regexp_replace(pa.gaji_range, '[Rp. ]', '', 'g'),
+                '-', 1)
+            AS BIGINT) > 4000000
+        ORDER BY a.nama ASC;
+    `
+	rows, err := database.DB.Query(query, tahunLulus)
+	if err != nil {
+		log.Printf("Error executing query: %v\n", err) 
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Terjadi kesalahan pada server",
+		})
+	}
+	defer rows.Close()
+
+	
+	var results []models.AlumniPekerjaan
+	
+	for rows.Next() {
+		var a models.AlumniPekerjaan 
+
+		err := rows.Scan(
+			&a.ID,
+			&a.Nama,
+			&a.Jurusan,
+			&a.TahunLulus,
+			&a.BidangIndustri,
+			&a.NamaPerusahaan,
+			&a.PosisiJabatan,
+			&a.GajiRange,
+			&a.JumlahAlumniPerTahun, 
+		)
+
+		if err != nil {
+			log.Printf("Error scanning row: %v\n", err) // Log error untuk debug
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"success": false,
+				"message": "Gagal memproses data dari database",
+			})
+		}
+
+		results = append(results, a)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Printf("Error during rows iteration: %v\n", err) // Log error untuk debug
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal membaca hasil dari database",
+		})
+	}
+	
+	if len(results) == 0 {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"success": true,
+			"message":   "Data alumni tidak ditemukan untuk tahun kelulusan tersebut",
+			"data":    []models.AlumniPekerjaan{}, 
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"message": "Data alumni berhasil diambil",
+		"data":    results, 
 	})
 }
 
