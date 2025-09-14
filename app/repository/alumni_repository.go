@@ -2,63 +2,61 @@ package repository
 
 import (
 	"crud-alumni/app/models"
-	"crud-alumni/database"
+	"database/sql"
 	"log"
-	"strconv"
 	"time"
-
-	"github.com/gofiber/fiber/v2"
 )
 
-func GetAllAlumni(c *fiber.Ctx) error{
-	rows, err := database.DB.Query(`SELECT * FROM alumni`)
+// AlumniRepository mendefinisikan interface untuk operasi database alumni.
+// Penggunaan interface memudahkan untuk testing (mocking).
+type AlumniRepository interface {
+	FindAll() ([]models.Alumni, error)
+	FindByYear(year int) ([]models.AlumniPekerjaan, error)
+	FindByID(id int) (*models.Alumni, error)
+	Create(req models.CreateAlumniRequest) (*models.Alumni, error)
+	Update(id int, req models.UpdateAlumniRequest) (*models.Alumni, error)
+	Delete(id int) error
+}
+
+// alumniRepository adalah implementasi konkret dari AlumniRepository.
+type alumniRepository struct {
+	db *sql.DB
+}
+
+// NewAlumniRepository membuat instance baru dari alumniRepository.
+func NewAlumniRepository(db *sql.DB) AlumniRepository {
+	return &alumniRepository{db: db}
+}
+
+func (r *alumniRepository) FindAll() ([]models.Alumni, error) {
+	rows, err := r.db.Query(`SELECT id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at FROM alumni`)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error": string(err.Error()),
-		})
+		return nil, err
 	}
 	defer rows.Close()
 
 	var alumniList []models.Alumni
-
-	for rows.Next(){
+	for rows.Next() {
 		var a models.Alumni
 		err := rows.Scan(
-			&a.ID, 
-			&a.NIM, 
-			&a.Nama,
-			&a.Jurusan,
-			&a.Angkatan,
-			&a.TahunLulus,
-			&a.Email,
-			&a.NoTelepon,
-			&a.Alamat,
-			&a.CreatedAt,
-			&a.UpdatedAt,
+			&a.ID, &a.NIM, &a.Nama, &a.Jurusan, &a.Angkatan,
+			&a.TahunLulus, &a.Email, &a.NoTelepon, &a.Alamat,
+			&a.CreatedAt, &a.UpdatedAt,
 		)
-		if err != nil{
-			return c.Status(500).JSON(fiber.Map{
-				"error": "Gagal scan data alumni",
-			})
+		if err != nil {
+			return nil, err // Kembalikan error jika scan gagal
 		}
 		alumniList = append(alumniList, a)
 	}
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data": alumniList,
-		"message" : "Data alumni berhasil diambil!",
-	})
-}
 
-func GetAlumniByYear(c *fiber.Ctx) error {
-	tahunLulus, err := strconv.Atoi(c.Params("tahun_lulus"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"success": false,
-			"message": "Parameter tahun lulus tidak valid",
-		})
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
+	return alumniList, nil
+}
+
+func (r *alumniRepository) FindByYear(year int) ([]models.AlumniPekerjaan, error) {
 	query := `
         SELECT 
             a.id, a.nama, a.jurusan, a.tahun_lulus, 
@@ -75,263 +73,121 @@ func GetAlumniByYear(c *fiber.Ctx) error {
             AS BIGINT) > 4000000
         ORDER BY a.nama ASC;
     `
-	rows, err := database.DB.Query(query, tahunLulus)
+	rows, err := r.db.Query(query, year)
 	if err != nil {
-		log.Printf("Error executing query: %v\n", err) 
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false,
-			"message": "Terjadi kesalahan pada server",
-		})
+		log.Printf("Error executing query: %v\n", err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	
 	var results []models.AlumniPekerjaan
-	
 	for rows.Next() {
-		var a models.AlumniPekerjaan 
-
+		var a models.AlumniPekerjaan
 		err := rows.Scan(
-			&a.ID,
-			&a.Nama,
-			&a.Jurusan,
-			&a.TahunLulus,
-			&a.BidangIndustri,
-			&a.NamaPerusahaan,
-			&a.PosisiJabatan,
-			&a.GajiRange,
-			&a.JumlahAlumniPerTahun, 
+			&a.ID, &a.Nama, &a.Jurusan, &a.TahunLulus, &a.BidangIndustri,
+			&a.NamaPerusahaan, &a.PosisiJabatan, &a.GajiRange, &a.JumlahAlumniPerTahun,
 		)
-
 		if err != nil {
-			log.Printf("Error scanning row: %v\n", err) // Log error untuk debug
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"success": false,
-				"message": "Gagal memproses data dari database",
-			})
+			log.Printf("Error scanning row: %v\n", err)
+			return nil, err
 		}
-
 		results = append(results, a)
 	}
-
+	
 	if err = rows.Err(); err != nil {
-		log.Printf("Error during rows iteration: %v\n", err) // Log error untuk debug
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"success": false,
-			"message": "Gagal membaca hasil dari database",
-		})
-	}
-	
-	if len(results) == 0 {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"success": true,
-			"message":   "Data alumni tidak ditemukan untuk tahun kelulusan tersebut",
-			"data":    []models.AlumniPekerjaan{}, 
-		})
+		log.Printf("Error during rows iteration: %v\n", err)
+		return nil, err
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Data alumni berhasil diambil",
-		"data":    results, 
-	})
+	return results, nil
 }
 
-func GetAllAlumniByid(c *fiber.Ctx)error{
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error" : "ID tidak valid",
-		})
-	}
-
+func (r *alumniRepository) FindByID(id int) (*models.Alumni, error) {
 	var a models.Alumni
-	row := database.DB.QueryRow(`
-		SELECT * 
-		FROM alumni
-		WHERE id = $1
-	`,id)
+	row := r.db.QueryRow(`
+        SELECT id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at 
+        FROM alumni WHERE id = $1
+    `, id)
 
-	err = row.Scan(
-		&a.ID, 
-		&a.NIM, 
-		&a.Nama,
-		&a.Jurusan,
-		&a.Angkatan,
-		&a.TahunLulus,
-		&a.Email,
-		&a.NoTelepon,
-		&a.Alamat,
-		&a.CreatedAt,
-		&a.UpdatedAt,
+	err := row.Scan(
+		&a.ID, &a.NIM, &a.Nama, &a.Jurusan, &a.Angkatan,
+		&a.TahunLulus, &a.Email, &a.NoTelepon, &a.Alamat,
+		&a.CreatedAt, &a.UpdatedAt,
 	)
 
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Alumni tidak ditemukan",
-		})
+		// Jika tidak ada baris yang ditemukan, sql.ErrNoRows akan dikembalikan
+		return nil, err
 	}
 
-	return  c.JSON(fiber.Map{
-		"success": true,
-		"data": a,
-		"message" : "Data alumni berhasil diambil",
-	})
+	return &a, nil
 }
 
-func CreateAlumni(c *fiber.Ctx)error{
-	var req models.CreateAlumniRequest
-
-	if err := c.BodyParser(&req); err != nil{
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Request body tidak valid",
-		})
-	}
-
-	// validasi input
-	if req.NIM == "" || req.Nama == "" || req.Jurusan == "" || req.Email == "" || req.Angkatan == 0 || req.NoTelepon == ""|| req.TahunLulus == 0 || req.Alamat == ""{
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Semua field harus diisi",
-		})
-	}
- 
-	var id int
-	err := database.DB.QueryRow(`
-		INSERT INTO alumni (nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		RETURNING id
-	`, req.NIM, req.Nama, req.Jurusan, req.Angkatan, req.TahunLulus, req.Email, req.NoTelepon, req.Alamat, time.Now(), time.Now(),
-	).Scan(&id)
-
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error" : "Gagal menambah data alumni. Pastikan data belum digunakan",
-		})
-	}
-
-	// Ambil data yang baru ditambahakn 
+func (r *alumniRepository) Create(req models.CreateAlumniRequest) (*models.Alumni, error) {
 	var newAlumni models.Alumni
-	row := database.DB.QueryRow(`
-		SELECT nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at
-		FROM alumni
-		WHERE id = $1
-	`, id)
-
-	row.Scan(
-		&newAlumni.ID, 
-		&newAlumni.NIM, 
-		&newAlumni.Nama,
-		&newAlumni.Jurusan,
-		&newAlumni.Angkatan,
-		&newAlumni.TahunLulus,
-		&newAlumni.Email,
-		&newAlumni.NoTelepon,
-		&newAlumni.Alamat,
-		&newAlumni.CreatedAt,
-		&newAlumni.UpdatedAt,
+	query := `
+        INSERT INTO alumni (nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at
+    `
+	err := r.db.QueryRow(
+		query,
+		req.NIM, req.Nama, req.Jurusan, req.Angkatan, req.TahunLulus,
+		req.Email, req.NoTelepon, req.Alamat, time.Now(), time.Now(),
+	).Scan(
+		&newAlumni.ID, &newAlumni.NIM, &newAlumni.Nama, &newAlumni.Jurusan, &newAlumni.Angkatan,
+		&newAlumni.TahunLulus, &newAlumni.Email, &newAlumni.NoTelepon, &newAlumni.Alamat,
+		&newAlumni.CreatedAt, &newAlumni.UpdatedAt,
 	)
-	return c.Status(201).JSON(fiber.Map{
-		"success": true,
-		"data": newAlumni,
-		"message": "Mahasiswa berhasil ditambahkan",
-	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &newAlumni, nil
 }
 
-func UpdateAlumni (c *fiber.Ctx)error{
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error" : "ID tidak valid",
-		})
-	}
-
-	var req models.UpdateAlumniRequest
-	if err := c.BodyParser(&req); err != nil{
-		return c.Status(400).JSON(fiber.Map{
-			"error": string(err.Error()),
-		})
-	}
-
-	// validasi input
-	if req.NIM == "" || req.Nama == "" || req.Jurusan == "" || req.Email == "" || req.Angkatan == 0 || req.NoTelepon == ""|| req.TahunLulus == 0 || req.Alamat == ""{
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Semua field harus diisi",
-		})
-	}
-
-	result, err := database.DB.Exec(`
-		UPDATE alumni
-		SET nim = $1, nama = $2, jurusan = $3, angkatan = $4, tahun_lulus = $5, email = $6, no_telepon = $7, alamat = $8, updated_at = $9
-		WHERE id = $10
-	`, req.NIM, req.Nama, req.Jurusan, req.Angkatan, req.TahunLulus, req.Email, req.NoTelepon, req.Alamat, time.Now(), id)
-	
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-			"error":  string(err.Error()),
-		})
-	}
-
-	rowsAffected, _ := result.RowsAffected()
-	if rowsAffected == 0 {
-		return c.Status(404).JSON(fiber.Map{
-			"error": "Alumni tidak ditemukan",
-		})
-	}
-
-	// ambil data yang sudah di update
+func (r *alumniRepository) Update(id int, req models.UpdateAlumniRequest) (*models.Alumni, error) {
 	var updatedAlumni models.Alumni
-	row := database.DB.QueryRow(`
-		SELECT *
-		FROM alumni
-		WHERE id = $1
-	`,id)
-
-	row.Scan(
-		&updatedAlumni.ID, 
-		&updatedAlumni.NIM, 
-		&updatedAlumni.Nama,
-		&updatedAlumni.Jurusan,
-		&updatedAlumni.Angkatan,
-		&updatedAlumni.TahunLulus,
-		&updatedAlumni.Email,
-		&updatedAlumni.NoTelepon,
-		&updatedAlumni.Alamat,
-		&updatedAlumni.CreatedAt,
-		&updatedAlumni.UpdatedAt,
+	query := `
+        UPDATE alumni
+        SET nim = $1, nama = $2, jurusan = $3, angkatan = $4, tahun_lulus = $5, email = $6, no_telepon = $7, alamat = $8, updated_at = $9
+        WHERE id = $10
+        RETURNING id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at
+    `
+	err := r.db.QueryRow(
+		query,
+		req.NIM, req.Nama, req.Jurusan, req.Angkatan, req.TahunLulus,
+		req.Email, req.NoTelepon, req.Alamat, time.Now(), id,
+	).Scan(
+		&updatedAlumni.ID, &updatedAlumni.NIM, &updatedAlumni.Nama, &updatedAlumni.Jurusan, &updatedAlumni.Angkatan,
+		&updatedAlumni.TahunLulus, &updatedAlumni.Email, &updatedAlumni.NoTelepon, &updatedAlumni.Alamat,
+		&updatedAlumni.CreatedAt, &updatedAlumni.UpdatedAt,
 	)
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"data": updatedAlumni,
-		"message": "Alumni berhasil di update",
-	})
+	if err != nil {
+		// sql.ErrNoRows jika ID tidak ditemukan
+		return nil, err
+	}
+
+	return &updatedAlumni, nil
 }
 
-func DeleteAlumni (c *fiber.Ctx)error{
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil{
-		return c.Status(400).JSON(fiber.Map{
-			"error": "ID tidak valid",
-		})
-	}
-
-	result, err := database.DB.Exec("DELETE FROM alumni WHERE id = $1", id)
+func (r *alumniRepository) Delete(id int) error {
+	result, err := r.db.Exec("DELETE FROM alumni WHERE id = $1", id)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{
-		"error": "Gagal menghapus alumni",
-		})
+		return err
 	}
 
-	rowsAffected, _ := result.RowsAffected()
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
 	if rowsAffected == 0 {
-		return c.Status(404).JSON(fiber.Map{
-		"error": "Alumni tidak ditemukan",
-		})
+		// Mengembalikan error standar jika tidak ada baris yang terpengaruh
+		return sql.ErrNoRows
 	}
 
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Alumni berhasil dihapus",
-	})
-
+	return nil
 }

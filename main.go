@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crud-alumni/app/repository"
+	"crud-alumni/app/service"
+	"crud-alumni/controller"
 	"crud-alumni/database"
 	"crud-alumni/route"
 	"log"
@@ -23,10 +26,22 @@ func main(){
 			})
 		},
 	})
+	// Repository
+	alumniRepo := repository.NewAlumniRepository(database.DB)
+	pekerjaanRepo := repository.NewPekerjaanRepository(database.DB)
+	
+	// Service
+	alumniService := service.NewAlumniService(alumniRepo)
+	pekerjaanService := service.NewPekerjaanService(pekerjaanRepo)
+
+	// Controller
+	alumniController := controller.NewAlumniController(alumniService)
+	pekerjaanController := controller.NewPekerjaanController(pekerjaanService)
 
 	// Routes
-	route.SetupRoutes(app)
+	route.SetupRoutes(app, alumniController, pekerjaanController)
 
 	//start server
+	log.Println("Server is running on port 3000...")
 	log.Fatal(app.Listen(":3000"))
 }
