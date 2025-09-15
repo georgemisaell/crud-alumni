@@ -26,20 +26,24 @@ func main(){
 			})
 		},
 	})
+
 	// Repository
 	alumniRepo := repository.NewAlumniRepository(database.DB)
 	pekerjaanRepo := repository.NewPekerjaanRepository(database.DB)
+	userRepo := repository.NewUserRepository(database.DB)
 	
 	// Service
 	alumniService := service.NewAlumniService(alumniRepo)
 	pekerjaanService := service.NewPekerjaanService(pekerjaanRepo)
+	authService := service.NewAuthService(userRepo)
 
 	// Controller
 	alumniController := controller.NewAlumniController(alumniService)
 	pekerjaanController := controller.NewPekerjaanController(pekerjaanService)
+	authController := controller.NewAuthController(authService)
 
 	// Routes
-	route.SetupRoutes(app, alumniController, pekerjaanController)
+	route.SetupRoutes(app, alumniController, pekerjaanController, authController)
 
 	//start server
 	log.Println("Server is running on port 3000...")

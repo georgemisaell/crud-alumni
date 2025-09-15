@@ -2,7 +2,7 @@ package controller
 
 import (
 	"crud-alumni/app/models"
-	"crud-alumni/app/service" // Controller bergantung pada Service
+	"crud-alumni/app/service"
 	"database/sql"
 	"strconv"
 
