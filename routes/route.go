@@ -16,7 +16,7 @@ func SetupRoutes(app *fiber.App, alumniController *controller.AlumniController, 
 	auth.Get("/profile", middleware.AuthRequired(), authController.GetProfile)
 
 	// Alumni routes
-	alumni := api.Group("/alumni", middleware.AdminOnly())
+	alumni := api.Group("/alumni") // middleware.AuthRequired() 
 	alumni.Get("/", alumniController.GetAlumniController)
 	alumni.Get("/:id", alumniController.GetAlumniByID)
 	// Akses Admin
@@ -28,8 +28,8 @@ func SetupRoutes(app *fiber.App, alumniController *controller.AlumniController, 
 	alumniPekerjaan.Get("/:tahun_lulus", alumniController.GetAlumniByYear)
 
 	// Pekerjaan alumni
-	pekerjaan := api.Group("/pekerjaan", middleware.AuthRequired())
-	pekerjaan.Get("/", pekerjaanController.GetAllPekerjaan)
+	pekerjaan := api.Group("/pekerjaan")//middleware.AuthRequired()
+	pekerjaan.Get("/", pekerjaanController.GetPekerjaanController)
 	pekerjaan.Get("/:id", pekerjaanController.GetPekerjaanByID)
 	// Akses Admin
 	pekerjaan.Post("/", middleware.AdminOnly(), pekerjaanController.CreatePekerjaan)

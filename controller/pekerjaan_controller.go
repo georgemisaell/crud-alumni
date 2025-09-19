@@ -146,3 +146,38 @@ func (ctrl *PekerjaanController) DeletePekerjaan(c *fiber.Ctx) error {
 		"message": "Pekerjaan berhasil dihapus",
 	})
 }
+
+func (ctrl *PekerjaanController) GetPekerjaanController(c *fiber.Ctx) error {
+	// 1. Ambil query parameter dari request
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	sortBy := c.Query("sortBy", "id")
+	order := c.Query("order", "asc")
+	search := c.Query("search", "")
+
+	pekerjaan, total, err := ctrl.pekerjaanService.GetWithPagination(search, sortBy, order, page, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal mengambil data pekerjaan",
+			"error":   err.Error(),
+		})
+	}
+
+	meta := models.MetaInfo{
+		Page:   page,
+		Limit:  limit,
+		Total:  total,
+		Pages:  (total + limit - 1) / limit,
+		SortBy: sortBy,
+		Order:  order,
+		Search: search,
+	}
+
+	response := models.PekerjaanResponse{
+		Data: pekerjaan,
+		Meta: meta,
+	}
+
+	return c.JSON(response)
+}

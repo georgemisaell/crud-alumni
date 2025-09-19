@@ -14,3 +14,8 @@ type AlumniResponse struct {
 	Data []Alumni `json:"data"`
 	Meta MetaInfo `json:"meta"`
 }
+
+type PekerjaanResponse struct {
+	Data []PekerjaanAlumni `json:"data"`
+	Meta MetaInfo          `json:"meta"`
+}

@@ -175,7 +175,7 @@ func (ctrl *AlumniController) GetAlumniController(c *fiber.Ctx) error {
 		Page:   page,
 		Limit:  limit,
 		Total:  total,
-		Pages:  (total + limit - 1) / limit, // Kalkulasi total halaman
+		Pages:  (total + limit - 1) / limit,
 		SortBy: sortBy,
 		Order:  order,
 		Search: search,

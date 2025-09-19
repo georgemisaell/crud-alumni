@@ -3,12 +3,16 @@ package repository
 import (
 	"crud-alumni/app/models"
 	"database/sql"
+	"fmt"
+	"log"
 	"time"
 )
 
 type PekerjaanRepository interface {
 	FindAll() ([]models.PekerjaanAlumni, error)
 	FindByID(id int) (*models.PekerjaanAlumni, error)
+	FindWithPagination(search, sortBy, order string, limit, offset int) ([]models.PekerjaanAlumni, error)
+	Count(search string) (int, error)
 	Create(req models.CreatePekerjaanRequest) (*models.PekerjaanAlumni, error)
 	Update(id int, req models.UpdatePekerjaanRequest) (*models.PekerjaanAlumni, error)
 	Delete(id int) error
@@ -139,4 +143,73 @@ func (r *pekerjaanRepository) Delete(id int) error {
 	}
 
 	return nil
+}
+
+		// SELECT
+		// 	pa.id,
+		// 	a.nama AS nama_alumni, 
+		// 	pa.nama_perusahaan,
+		// 	pa.posisi_jabatan,
+		// 	pa.bidang_industri,
+		// 	pa.lokasi_kerja,
+		// 	pa.gaji_range,
+		// 	pa.status_pekerjaan,
+		// 	pa.created_at,
+		// 	pa.updated_at
+		// FROM
+		// 	pekerjaan_alumni AS pa 
+		// INNER JOIN
+		// 	alumni AS a ON pa.alumni_id = a.id
+		// WHERE
+		// 	a.nama ILIKE $1 OR pa.nama_perusahaan ILIKE $1 
+		// ORDER BY
+		// 	%s %s
+		// LIMIT $2 OFFSET $3;
+
+func (r *pekerjaanRepository) FindWithPagination(search, sortBy, order string, limit, offset int) ([]models.PekerjaanAlumni, error) {
+	query := fmt.Sprintf(`
+		SELECT id, nama_perusahaan, posisi_jabatan, bidang_industri, lokasi_kerja, gaji_range, status_pekerjaan, created_at, updated_at
+		FROM pekerjaan_alumni
+		WHERE nama_perusahaan ILIKE $1 OR bidang_industri ILIKE $1
+		ORDER BY %s %s
+		LIMIT $2 OFFSET $3
+	`, sortBy, order)
+
+	rows, err := r.db.Query(query, "%"+search+"%", limit, offset)
+	if err != nil {
+		log.Println("Query error:", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var pekerjaanList []models.PekerjaanAlumni
+	for rows.Next() {
+		var a models.PekerjaanAlumni
+
+		err := rows.Scan(
+			&a.ID , &a.NamaPerusahaan, &a.PosisiJabatan, &a.BidangIndustri, &a.LokasiKerja,
+			&a.GajiRange, &a.StatusPekerjaan, &a.CreatedAt, &a.UpdatedAt,
+		)
+		if err != nil {
+			log.Println("Scan error:", err)
+			return nil, err
+		}
+		pekerjaanList = append(pekerjaanList, a)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return pekerjaanList, nil
+}
+
+func (r *pekerjaanRepository) Count(search string) (int, error) {
+	var total int
+	countQuery := `SELECT COUNT(*) FROM pekerjaan_alumni WHERE nama_perusahaan ILIKE $1 OR bidang_industri ILIKE $1`
+	err := r.db.QueryRow(countQuery, "%"+search+"%").Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
 }
