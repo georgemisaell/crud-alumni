@@ -12,13 +12,12 @@ func SetupRoutes(app *fiber.App, alumniController *controller.AlumniController, 
 
 	// Auth Routes
 	auth := api.Group("/auth")
-	auth.Post("/login", authController.Login) // Gunakan method dari authController
-	// Tambahkan route untuk profile, dilindungi oleh middleware
+	auth.Post("/login", authController.Login)
 	auth.Get("/profile", middleware.AuthRequired(), authController.GetProfile)
 
 	// Alumni routes
-	alumni := api.Group("/alumni", middleware.AuthRequired())
-	alumni.Get("/", alumniController.GetAllAlumni)
+	alumni := api.Group("/alumni", middleware.AdminOnly())
+	alumni.Get("/", alumniController.GetAlumniController)
 	alumni.Get("/:id", alumniController.GetAlumniByID)
 	// Akses Admin
 	alumni.Post("/", middleware.AdminOnly(), alumniController.CreateAlumni)

@@ -5,7 +5,7 @@ import (
 	"crud-alumni/app/service"
 	"crud-alumni/controller"
 	"crud-alumni/database"
-	"crud-alumni/route"
+	route "crud-alumni/routes"
 	"log"
 
 	// "time"

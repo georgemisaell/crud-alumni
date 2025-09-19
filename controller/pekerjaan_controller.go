@@ -2,19 +2,17 @@ package controller
 
 import (
 	"crud-alumni/app/models"
-	"crud-alumni/app/service" // Controller bergantung pada Service
+	"crud-alumni/app/service"
 	"database/sql"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// PekerjaanController menangani interaksi HTTP untuk data pekerjaan.
 type PekerjaanController struct {
 	pekerjaanService service.PekerjaanService
 }
 
-// NewPekerjaanController membuat instance baru dari PekerjaanController.
 func NewPekerjaanController(service service.PekerjaanService) *PekerjaanController {
 	return &PekerjaanController{pekerjaanService: service}
 }

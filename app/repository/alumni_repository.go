@@ -3,27 +3,28 @@ package repository
 import (
 	"crud-alumni/app/models"
 	"database/sql"
+	"fmt"
 	"log"
 	"time"
+
+	_ "golang.org/x/text/search"
 )
 
-// AlumniRepository mendefinisikan interface untuk operasi database alumni.
-// Penggunaan interface memudahkan untuk testing (mocking).
 type AlumniRepository interface {
 	FindAll() ([]models.Alumni, error)
 	FindByYear(year int) ([]models.AlumniPekerjaan, error)
 	FindByID(id int) (*models.Alumni, error)
+	FindWithPagination(search, sortBy, order string, limit, offset int) ([]models.Alumni, error)
+	Count(search string) (int, error)
 	Create(req models.CreateAlumniRequest) (*models.Alumni, error)
 	Update(id int, req models.UpdateAlumniRequest) (*models.Alumni, error)
 	Delete(id int) error
 }
 
-// alumniRepository adalah implementasi konkret dari AlumniRepository.
 type alumniRepository struct {
 	db *sql.DB
 }
 
-// NewAlumniRepository membuat instance baru dari alumniRepository.
 func NewAlumniRepository(db *sql.DB) AlumniRepository {
 	return &alumniRepository{db: db}
 }
@@ -44,7 +45,7 @@ func (r *alumniRepository) FindAll() ([]models.Alumni, error) {
 			&a.CreatedAt, &a.UpdatedAt,
 		)
 		if err != nil {
-			return nil, err // Kembalikan error jika scan gagal
+			return nil, err 
 		}
 		alumniList = append(alumniList, a)
 	}
@@ -116,7 +117,6 @@ func (r *alumniRepository) FindByID(id int) (*models.Alumni, error) {
 	)
 
 	if err != nil {
-		// Jika tidak ada baris yang ditemukan, sql.ErrNoRows akan dikembalikan
 		return nil, err
 	}
 
@@ -166,7 +166,6 @@ func (r *alumniRepository) Update(id int, req models.UpdateAlumniRequest) (*mode
 	)
 
 	if err != nil {
-		// sql.ErrNoRows jika ID tidak ditemukan
 		return nil, err
 	}
 
@@ -185,9 +184,57 @@ func (r *alumniRepository) Delete(id int) error {
 	}
 
 	if rowsAffected == 0 {
-		// Mengembalikan error standar jika tidak ada baris yang terpengaruh
 		return sql.ErrNoRows
 	}
 
 	return nil
+}
+
+func (r *alumniRepository) FindWithPagination(search, sortBy, order string, limit, offset int) ([]models.Alumni, error) {
+	query := fmt.Sprintf(`
+		SELECT id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at
+		FROM alumni
+		WHERE nim ILIKE $1 OR nama ILIKE $1
+		ORDER BY %s %s
+		LIMIT $2 OFFSET $3
+	`, sortBy, order)
+
+	rows, err := r.db.Query(query, "%"+search+"%", limit, offset)
+	if err != nil {
+		log.Println("Query error:", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var alumniList []models.Alumni
+	for rows.Next() {
+		var a models.Alumni
+
+		err := rows.Scan(
+			&a.ID, &a.NIM, &a.Nama, &a.Jurusan, &a.Angkatan,
+			&a.TahunLulus, &a.Email, &a.NoTelepon, &a.Alamat,
+			&a.CreatedAt, &a.UpdatedAt,
+		)
+		if err != nil {
+			log.Println("Scan error:", err)
+			return nil, err
+		}
+		alumniList = append(alumniList, a)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return alumniList, nil
+}
+
+func (r *alumniRepository) Count(search string) (int, error) {
+	var total int
+	countQuery := `SELECT COUNT(*) FROM alumni WHERE nim ILIKE $1 OR nama ILIKE $1`
+	err := r.db.QueryRow(countQuery, "%"+search+"%").Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// PekerjaanRepository mendefinisikan interface untuk operasi database pekerjaan alumni.
 type PekerjaanRepository interface {
 	FindAll() ([]models.PekerjaanAlumni, error)
 	FindByID(id int) (*models.PekerjaanAlumni, error)
@@ -15,12 +14,10 @@ type PekerjaanRepository interface {
 	Delete(id int) error
 }
 
-// pekerjaanRepository adalah implementasi konkret dari PekerjaanRepository.
 type pekerjaanRepository struct {
 	db *sql.DB
 }
 
-// NewPekerjaanRepository membuat instance baru dari pekerjaanRepository.
 func NewPekerjaanRepository(db *sql.DB) PekerjaanRepository {
 	return &pekerjaanRepository{db: db}
 }
@@ -67,7 +64,7 @@ func (r *pekerjaanRepository) FindByID(id int) (*models.PekerjaanAlumni, error) 
 	)
 
 	if err != nil {
-		return nil, err // Akan mengembalikan sql.ErrNoRows jika tidak ditemukan
+		return nil, err
 	}
 
 	return &p, nil
@@ -138,7 +135,7 @@ func (r *pekerjaanRepository) Delete(id int) error {
 	}
 
 	if rowsAffected == 0 {
-		return sql.ErrNoRows // Standar error jika tidak ada baris yang dihapus
+		return sql.ErrNoRows
 	}
 
 	return nil

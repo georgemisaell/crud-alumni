@@ -3,30 +3,26 @@ package service
 import (
 	"crud-alumni/app/models"
 	"crud-alumni/app/repository"
+	"strings"
 )
 
-// AlumniService sekarang mendefinisikan interface untuk logika bisnis murni.
-// Tidak ada lagi *fiber.Ctx di sini.
 type AlumniService interface {
 	GetAllAlumni() ([]models.Alumni, error)
 	GetAlumniByYear(year int) ([]models.AlumniPekerjaan, error)
 	GetAlumniByID(id int) (*models.Alumni, error)
+	GetAlumniWithPagination(search, sortBy, order string, page, limit int) ([]models.Alumni, int, error)
 	CreateAlumni(req models.CreateAlumniRequest) (*models.Alumni, error)
 	UpdateAlumni(id int, req models.UpdateAlumniRequest) (*models.Alumni, error)
 	DeleteAlumni(id int) error
 }
 
-// alumniService tetap menjadi implementasi konkret.
 type alumniService struct {
 	repo repository.AlumniRepository
 }
 
-// NewAlumniService tidak berubah, tetap menerima repository.
 func NewAlumniService(repo repository.AlumniRepository) AlumniService {
 	return &alumniService{repo: repo}
 }
-
-// Method-method di bawah ini sekarang lebih sederhana dan fokus pada logika.
 
 func (s *alumniService) GetAllAlumni() ([]models.Alumni, error) {
 	return s.repo.FindAll()
@@ -41,11 +37,6 @@ func (s *alumniService) GetAlumniByID(id int) (*models.Alumni, error) {
 }
 
 func (s *alumniService) CreateAlumni(req models.CreateAlumniRequest) (*models.Alumni, error) {
-	// Di masa depan, validasi bisnis yang kompleks bisa ditaruh di sini.
-	// Contoh:
-	// if s.repo.IsNIMExists(req.NIM) {
-	//     return nil, errors.New("NIM sudah terdaftar")
-	// }
 	return s.repo.Create(req)
 }
 
@@ -55,4 +46,29 @@ func (s *alumniService) UpdateAlumni(id int, req models.UpdateAlumniRequest) (*m
 
 func (s *alumniService) DeleteAlumni(id int) error {
 	return s.repo.Delete(id)
+}
+
+func (s *alumniService) GetAlumniWithPagination(search, sortBy, order string, page, limit int) ([]models.Alumni, int, error) {
+	sortByWhitelist := map[string]bool{"id": true, "nim": true, "nama": true, "created_at": true}
+	if !sortByWhitelist[sortBy] {
+		sortBy = "id"
+	}
+
+	if strings.ToLower(order) != "desc" {
+		order = "asc"
+	}
+
+	offset := (page - 1) * limit
+
+	alumni, err := s.repo.FindWithPagination(search, sortBy, order, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := s.repo.Count(search)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return alumni, total, nil
 }

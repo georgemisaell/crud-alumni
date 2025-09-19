@@ -6,22 +6,18 @@ import (
 	"database/sql"
 )
 
-// Definisikan interface untuk user repository agar mudah untuk di-mock saat testing
 type UserRepository interface {
 	FindByUsernameOrEmail(usernameOrEmail string) (*models.User, string, error)
 }
 
-// Struct implementasi dari interface
 type userRepository struct {
 	db *sql.DB
 }
 
-// Constructor untuk membuat instance baru dari userRepository
 func NewUserRepository(db *sql.DB) UserRepository {
 	return &userRepository{db: db}
 }
 
-// Method untuk mencari user berdasarkan username atau email
 func (r *userRepository) FindByUsernameOrEmail(usernameOrEmail string) (*models.User, string, error) {
 	var user models.User
 	var passwordHash string
@@ -41,7 +37,7 @@ func (r *userRepository) FindByUsernameOrEmail(usernameOrEmail string) (*models.
 	)
 
 	if err != nil {
-		return nil, "", err // Biarkan service yang menangani jenis errornya
+		return nil, "", err
 	}
 
 	return &user, passwordHash, nil

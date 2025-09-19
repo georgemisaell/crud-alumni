@@ -9,22 +9,18 @@ import (
 	"errors"
 )
 
-// Definisikan interface untuk auth service
 type AuthService interface {
 	Login(req models.LoginRequest) (*models.LoginResponse, error)
 }
 
-// Struct implementasi dari interface
 type authService struct {
 	userRepo repository.UserRepository
 }
 
-// Constructor untuk membuat instance baru dari authService
 func NewAuthService(userRepo repository.UserRepository) AuthService {
 	return &authService{userRepo: userRepo}
 }
 
-// Method untuk handle logika bisnis login
 func (s *authService) Login(req models.LoginRequest) (*models.LoginResponse, error) {
 	// 1. Cari user via repository
 	user, passwordHash, err := s.userRepo.FindByUsernameOrEmail(req.Username)

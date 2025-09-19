@@ -115,14 +115,7 @@ func (ctrl *AlumniController) CreateAlumni(c *fiber.Ctx) error {
 	})
 }
 
-// ... method untuk Update dan Delete dengan pola yang sama ...
 func (ctrl *AlumniController) UpdateAlumni(c *fiber.Ctx) error {
-	// 1. Parse ID dari params
-	// 2. Parse body request
-	// 3. Validasi input sederhana
-	// 4. Panggil ctrl.alumniService.UpdateAlumni(id, req)
-	// 5. Handle error dan kirim response
-	// (Implementasi sama seperti di service Anda sebelumnya)
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "ID tidak valid"})
@@ -145,10 +138,6 @@ func (ctrl *AlumniController) UpdateAlumni(c *fiber.Ctx) error {
 }
 
 func (ctrl *AlumniController) DeleteAlumni(c *fiber.Ctx) error {
-	// 1. Parse ID dari params
-	// 2. Panggil ctrl.alumniService.DeleteAlumni(id)
-	// 3. Handle error dan kirim response
-	// (Implementasi sama seperti di service Anda sebelumnya)
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"success": false, "message": "ID tidak valid"})
@@ -161,4 +150,41 @@ func (ctrl *AlumniController) DeleteAlumni(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"success": false, "message": "Gagal menghapus alumni"})
 	}
 	return c.JSON(fiber.Map{"success": true, "message": "Alumni berhasil dihapus"})
+}
+
+func (ctrl *AlumniController) GetAlumniController(c *fiber.Ctx) error {
+	// 1. Ambil query parameter dari request
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	sortBy := c.Query("sortBy", "id")
+	order := c.Query("order", "asc")
+	search := c.Query("search", "")
+
+	// 2. Panggil service (tidak ada lagi logika bisnis di sini)
+	alumni, total, err := ctrl.alumniService.GetAlumniWithPagination(search, sortBy, order, page, limit)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"message": "Gagal mengambil data alumni",
+			"error":   err.Error(),
+		})
+	}
+
+	// 3. Bangun response
+	meta := models.MetaInfo{
+		Page:   page,
+		Limit:  limit,
+		Total:  total,
+		Pages:  (total + limit - 1) / limit, // Kalkulasi total halaman
+		SortBy: sortBy,
+		Order:  order,
+		Search: search,
+	}
+
+	response := models.AlumniResponse{
+		Data: alumni,
+		Meta: meta,
+	}
+
+	return c.JSON(response)
 }
